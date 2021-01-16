@@ -1,0 +1,1348 @@
+---
+title: "clustering_week 13 Ip: Part 2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## 1.0 Defining the Question
+
+Kira Plastinina is a Russian brand that is sold through a defunct chain of retail stores in Russia, Ukraine, Kazakhstan, Belarus, China, Philippines, and Armenia. The brand’s Sales and Marketing team would like to understand their customer’s behavior from data that they have collected over the past year. More specifically, they would like to learn the characteristics of customer groups.
+
+### Data provided
+
+Dataset Url = http://bit.ly/EcommerceCustomersDataset
+
+### Data grossary
+
+  'Revenue' attribute can be used as the class label
+
+  "Administrative", "Administrative Duration", "Informational", "Informational Duration", "Product Related" and "Product Related Duration" represents the number of different types of pages visited by the visitor in that session and total time spent in each of these page categories. The values of these features are derived from the URL information of the pages visited by the user and updated in real-time when a user takes an action, e.g. moving from one page to another.
+
+  "Bounce Rate", "Exit Rate" and "Page Value" features represent the metrics measured by "Google Analytics" for each page in the e-commerce site.
+
+  "Bounce Rate" feature for a web page refers to the percentage of visitors who enter the site from that page and then leave ("bounce") without triggering any other requests to the analytics server during that session.
+ 
+  "Exit Rate" feature for a specific web page is calculated as for all pageviews to the page, the percentage that was the last in the session.
+  
+  "Page Value" feature represents the average value for a web page that a user visited before completing an e-commerce transaction.
+  
+  "Special Day" feature indicates the closeness of the site visiting time to a specific special day (e.g. Mother’s Day, Valentine's Day) in which the sessions are more likely to be finalized with the transaction. The value of this attribute is determined by considering the dynamics of e-commerce such as the duration between the order date and delivery date. For example, for Valentine’s day, this value takes a nonzero value between February 2 and February 12, zero before and after this date unless it is close to another special day, and its maximum value of 1 on February 8.
+  
+  The dataset also includes the operating system, browser, region, traffic type, visitor type as returning or new visitor, a Boolean value indicating whether the date of the visit is weekend, and month of the year.
+
+
+
+## 1.1 Specifying the data analytic
+#
+Use clustering (K-Means and Hierarchical) to group customers according to their behavior.
+
+## 1.2 Defining the metric for success
+
+Identify individuals that are likely to click on the add after performing exploratory data analysis
+
+## 1.3 Understanding the Context
+
+A Kenyan entrepreneur has created an online cryptography course and would want to advertise it on her blog. She currently targets audiences originating from various countries. In the past, she ran ads to advertise a related course on the same blog and collected data in the process.
+
+## 1.4 Recording the Experimental
+
+1.Data Loading 
+
+2.Data cleaning for missing values and outliers 
+
+3.Exploratory Data Analysis 
+
+4. Perform clustering stating insights drawn from your analysis and visualizations.
+
+5. Upon implementation, provide comparisons between the approaches learned this week i.e. K-Means clustering vs Hierarchical clustering highlighting the strengths and limitations of each approach in the context of your analysis
+
+6.Conclusion-Detecting the trend in behavior.
+
+## 1.5 Assessing the Relevance of the Data
+
+The dataset provided has ecommerce data and it is genuine.
+
+
+
+
+## 2.0 Importing package
+
+```{r}
+## 2.0 Importing packages
+#
+#importing libraries
+#
+#install.packages("caret")
+#loading the library
+library(data.table) # load package
+#install.packages(c("Rcpp","tidyverse")) # install packages to work with data frame - extends into visualization
+library(tidyverse)
+library("caret")
+```
+
+
+
+##2.1 Importing dataset
+```{r}
+# Dataset Url = http://bit.ly/EcommerceCustomersDataset
+# Importing our dataset
+# ---
+#
+customer_dataset <- read.csv('http://bit.ly/EcommerceCustomersDataset')
+
+# Previewing the dataset
+# ---
+#having a look at the dataset 
+head(customer_dataset,6)
+```
+
+### Previewing the dataset
+```{r}
+#viewing the dataset
+#
+View(customer_dataset)
+```
+observation:  12,330 records and 18 total columns.
+
+
+### checking the colunms summary
+```{r}
+# checking the content/summary statistics of each column.
+str(customer_dataset)
+```
+observation: the dataset comprise of integer, numerical, categorical and logical datatypes.
+
+### displaying dataset dimension
+```{r}
+### checking the dataset dimension(displaying the number of rows and columns).
+dim(customer_dataset)
+```
+
+```{r}
+### checking our dataset class
+class(customer_dataset)
+```
+
+
+
+### converting the data into a tibble for easy manupulation
+```{r}
+#For ease in analysis,we convert the data into a tibble
+df_dataset<-as_tibble(customer_dataset) # there is suggestion to use as_tibble instead of as.tibble.
+df_dataset
+```
+
+
+###checking dataset summary
+```{r}
+### dataset summary 
+summary(df_dataset)
+
+```
+
+
+
+## 3.0 Data cleaning
+
+
+
+###3.0a missing values
+```{r}
+# Identify missing data in our entire dataset using is.na() function
+#
+
+colSums(is.na(df_dataset))
+```
+
+###3.0b Checking for missing values using the complete function
+```{r}
+
+# using complete function 
+df_dataset[!complete.cases(df_dataset),]
+```
+
+observation: we have missing values in our dataset.
+
+
+### dealing with missing values
+
+Before we can do anything about the missing values, we have to first confirm that we have more than sufficient records. A rule of thumb is to ensure that there are at least 5 records per variables (at least 5 rows for each column). We have 18 columns, so 18 times 5 is 900. Since we have way more than 900 records, it is safe and efficient to just drop these records with missing values.
+
+
+```{r}
+#dropping missing values
+df_dataset <- na.omit(df_dataset)
+#
+#comfirming no more missing values
+colSums(is.na(df_dataset))
+```
+observations: all missing values were dropped.
+
+
+```{r}
+#checking our dataset dimension after dropping missing values
+dim(df_dataset)
+```
+observation:  we have not lost too many records
+
+
+### 3.1a Duplicated Data
+```{r}
+#Identifying Duplicated Data
+#
+duplicated_rows <- df_dataset[duplicated(df_dataset),]
+duplicated_rows
+```
+
+observation: a couple of colunms has duplicated values. checking further for the sum of duplicates
+
+```{r}
+# checking for duplicated records
+anyDuplicated(df_dataset)
+```
+observation: there is a total of 159 duplicates in our dataset.
+
+
+###dealing with the duplicates
+```{r}
+# removing duplicates using unique () function
+df_dataset <- unique(df_dataset)
+#
+#confirming no duplicates.
+anyDuplicated(df_dataset)
+```
+###checking the new dimension
+```{r}
+#checking dataset dimension
+dim(df_dataset)
+
+```
+observation: 159 duplicated records was removed to reduce redundancy. we now have 12199 records and 18 colunms.
+
+
+
+
+###3.2 Outliers
+
+### installing outlier package and library
+
+```{r}
+# installing outlier package
+#install.packages("outliers")
+#
+library(outliers)
+```
+
+
+
+## converting some clunms to categorical datatypes.
+
+'month', 'The OperatingSystems', 'Browser', 'Region', and 'TrafficType variables', vistor type' are categorical in nature and not numerical, they have already been encoded to make them easier to work with. also 'Weekend' and 'Revenue' columns. We will convert all of them to their appropriate data type.
+
+```{r}
+#converting colunms to categorical datatypes
+#
+df_dataset$Month  <- as.factor(df_dataset$Month)
+df_dataset$OperatingSystems <- as.factor(df_dataset$OperatingSystems)
+df_dataset$Browser <- as.factor(df_dataset$Browser)
+df_dataset$Region <- as.factor(df_dataset$Region)
+df_dataset$TrafficType <- as.factor(df_dataset$TrafficType)
+df_dataset$VisitorType  <- as.factor(df_dataset$VisitorType)
+df_dataset$Weekend <- as.factor(df_dataset$Weekend)
+df_dataset$Revenue <- as.factor(df_dataset$Revenue)
+```
+
+
+## confirming the datatype changes
+```{r}
+# confirming the data types changes
+str(df_dataset)
+```
+
+###3.2a Identifying the numeric class in the data and evaluating if there are any outliers
+```{r}
+#
+#Checking the data types of the columns
+#
+df_num<- df_dataset %>% select_if(is.numeric)
+df_num
+```
+observation: there are 10 numerical colunms.
+
+
+### 3.2b Checking for outliers
+```{r}
+#checking outliers in numerical colunms
+#
+outlier(df_num)
+```
+observation: we have outliers. However we will handle in univariate analysis.
+
+
+##checking dataset summary after data cleaning
+```{r}
+# getting the main summary
+summary(df_dataset)
+```
+observations: this shows the distribution of data, just to check a few.
+
+  On Visitor Type:
+
+10425 are Returning
+1693 are New
+81 are Other
+
+
+On Weekend:
+
+9343 are False
+2856 are True
+
+
+On Revenue:
+
+10291 are False
+1908 are True
+
+
+
+##getting the dataset description
+
+```{r}
+library(psych)
+describe(df_dataset)
+```
+observation: it gives us the gimplse of the mean,variance,max and so on.
+
+
+## 4.0 Univariate Analysis
+
+
+
+### 4.1 univariate Analysis for Numerical Data
+
+```{r}
+#preview of the numerical colunms
+#
+df_num <- df_dataset[,1:10]
+head(df_num)
+```
+
+```{r}
+str(df_num)
+```
+
+
+
+### previewing the numerical variables' using boxplots
+```{r}
+
+#3.2bi. Checking the outliers in the 'Administrative' Column.
+#
+boxplot(df_dataset$Administrative, main= "Administrative boxplot",ylab="Administrative", boxwex=0.2)
+```
+```{r}
+#3.2bi. Checking the outliers in the 'Administrative_Duration' Column.
+#
+boxplot(df_dataset$Administrative_Duration, main= "Administrative_Duration",ylab="Administrative_Duration", boxwex=0.2)
+```
+```{r}
+#3.2bi. Checking the outliers in the 'Informational' Column.
+#
+boxplot(df_dataset$Informational, main= "Informational",ylab="Informational", boxwex=0.2)
+```
+
+```{r}
+#3.2bi. Checking the outliers in the 'Informational_Duration' Column.
+#
+boxplot(df_dataset$Informational_Duration, main= "Informational_Duration",ylab="Informational_Duration", boxwex=0.2)
+```
+
+
+```{r}
+#3.2bi. Checking the outliers in the 'ProductRelated' Column.
+#
+boxplot(df_dataset$ProductRelated, main= "ProductRelated",ylab="ProductRelated", boxwex=0.2)
+```
+
+```{r}
+#3.2bi. Checking the outliers in the 'ProductRelated_Duration' Column.
+#
+boxplot(df_dataset$ProductRelated_Duration, main= "ProductRelated_Duration",ylab="ProductRelated_Duration", boxwex=0.2)
+```
+
+```{r}
+#3.2bi. Checking the outliers in the 'BounceRates' Column.
+#
+boxplot(df_dataset$BounceRates, main= "BounceRates",ylab="BounceRates", boxwex=0.2)
+```
+
+```{r}
+#3.2bi. Checking the outliers in the 'ExitRates' Column.
+#
+boxplot(df_dataset$ExitRates, main= "ExitRates",ylab="ExitRates", boxwex=0.2)
+```
+
+```{r}
+#3.2bi. Checking the outliers in the 'PageValues' Column.
+#
+boxplot(df_dataset$PageValues, main= "PageValues",ylab="PageValues", boxwex=0.2)
+```
+
+```{r}
+#3.2bi. Checking the outliers in the 'SpecialDay' Column.
+#
+boxplot(df_dataset$SpecialDay, main= "SpecialDay",ylab="SpecialDay", boxwex=0.2)
+```
+Observation: all the numerical columns has outliers, however will not be removed because they represent the real world, and can provide some insights as to why they 
+
+
+
+
+### previewing the numerical variables using histograms to check skewness.
+
+```{r}
+#3.3ai installing ggplot2 package for visualization.
+#install.packages('ggplot2')
+#
+#installing ggplot2 library
+#
+library(ggplot2)
+#
+#note: the above  have been installed in the console section.
+```
+
+
+```{r}
+#visualizing the Administrative colunm to check for skewness
+#
+ggplot2::qplot(data = df_dataset, x = Administrative)
+```
+
+```{r}
+#visualizing the Administrative_Duration colunm to check for skewness
+#
+ggplot2::qplot(data = df_dataset, x = Administrative_Duration)
+```
+
+```{r}
+#visualizing the Informational colunm to check for skewness
+#
+ggplot2::qplot(data = df_dataset, x = Informational)
+```
+
+```{r}
+#visualizing the Informational_Duration colunm to check for skewness
+#
+ggplot2::qplot(data = df_dataset, x = Informational_Duration)
+```
+
+
+```{r}
+#visualizing the  colunm to check for skewness
+#
+ggplot2::qplot(data = df_dataset, x = ProductRelated)
+```
+
+
+```{r}
+#visualizing the  ProductRelated_Duration colunm to check for skewness
+#
+ggplot2::qplot(data = df_dataset, x = ProductRelated_Duration)
+```
+
+```{r}
+#visualizing the BounceRates colunm to check for skewness
+#
+ggplot2::qplot(data = df_dataset, x = BounceRates)
+```
+
+
+```{r}
+#visualizing the ExitRates colunm to check for skewness
+#
+ggplot2::qplot(data = df_dataset, x = ExitRates)
+```
+
+
+```{r}
+#visualizing the PageValues colunm to check for skewness
+#
+ggplot2::qplot(data = df_dataset, x = PageValues)
+```
+
+```{r}
+#visualizing the SpecialDay  colunm to check for skewness
+#
+ggplot2::qplot(data = df_dataset, x = SpecialDay)
+```
+observation: All our numerical variables have outliers are positively skewed.
+
+
+```{r}
+#importing library for visualization
+#
+library(dplyr)    # alternatively, this also loads %>%
+library(tidyr) ## for gather
+library("ggplot2") ### for visualization
+```
+
+
+## we can check skewness for numerical values at once as below
+```{r}
+
+df_dataset%>%
+  gather(attributes, value, 1:10) %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(fill = 'lightblue2', color = 'black') +
+  facet_wrap(~attributes, scales = 'free_x') +
+  labs(x="Values", y="Frequency") +
+  theme_bw()
+```
+observation: shows skewness to the right(positive skewness).
+
+
+
+
+### 4.1b univariate Analysis for categorical Data
+
+```{r}
+## Identifying the categorical class in the data 
+#
+#Checking the data types of the columns
+#
+df_cat<- df_dataset %>% select_if(is.factor)
+df_cat
+```
+
+## creating tables for bar plots.
+
+```{r}
+# create tables of all categorical variables to be able to create bar plots with them
+month_table <- table(df_dataset$Month)
+os_table <- table(df_dataset$OperatingSystems)
+browser_table <- table(df_dataset$Browser)
+region_table <- table(df_dataset$Region)
+traffic_table <- table(df_dataset$TrafficType)
+visitor_table <- table(df_dataset$VisitorType)
+weekend_table <- table(df_dataset$Weekend)
+revenue_table <- table(df_dataset$Revenue)
+```
+
+
+### adjusting plot size.
+```{r}
+# function for adjusting plot size
+set_plot_dimensions <- function(width_choice, height_choice) {
+    options(repr.plot.width = width_choice, repr.plot.height = height_choice)
+}
+```
+
+```{r}
+# barplot of Month
+set_plot_dimensions(5, 4)
+month_table
+barplot(month_table, ylab = "count", xlab="month", col="pink")
+```
+observation: May is the most frequently occurring month with February being the least frequently occurring.
+
+
+```{r}
+# barplot of operating system
+set_plot_dimensions(5, 4)
+os_table
+barplot(os_table, ylab = "count", xlab="operating system type", col="sky blue")
+```
+observartion; Operating System 2 is the most widely used Operating System, followed by OS 1 and 3 which seem to be almost the same. OS 5 is the least used operating system.
+
+
+```{r}
+# barplot of browser
+set_plot_dimensions(5, 4)
+browser_table
+barplot(browser_table, ylab = "count", xlab="browser type", col="dark green")
+```
+observation: Browser 2 is the most widely used browser and it's followed by Browser 1. Browsers 9, 11, and 12 appear to be the least used browsers.
+
+
+
+```{r}
+# barplot of region
+set_plot_dimensions(5, 4)
+region_table
+barplot(region_table, ylab = "count", xlab="region", col="orange")
+```
+observation: Region 1 is the most occurring region while Region 5 is the least occurring.
+
+
+
+```{r}
+# barplot of traffic
+set_plot_dimensions(5, 4)
+traffic_table
+barplot(traffic_table, ylab = "count", xlab="traffic type", col="black")
+```
+observation: Traffic Type 2 is the highest followed by Type 1 and Type 3. Type 12, 16, and 17 appear to be the least frequently occurring in the dataset.
+
+
+```{r}
+# barplot of visitor
+set_plot_dimensions(5, 4)
+visitor_table
+barplot(visitor_table, ylab = "count", xlab="visitor type", col="dark orange")
+```
+observation: Majority of the visitors are returning; they are not new to this business.
+
+
+```{r}
+# barplot of weekend
+set_plot_dimensions(5, 4)
+weekend_table
+barplot(weekend_table, ylab = "count", xlab="day type", col="tomato")
+```
+observation: Weekdays outnumber weekends in this dataset.
+
+
+```{r}
+# barplot of revenue
+set_plot_dimensions(5, 4)
+revenue_table 
+barplot(revenue_table,ylab = "count", xlab="revenue", col="brown" )
+```
+observation: There are more FALSE revenues than true ones by a huge margin.
+
+
+## 3.2 Bivariate Analysis
+
+```{r}
+# Administrative by Revenue
+set_plot_dimensions(5, 4)
+ggplot(df_dataset, aes(x = Administrative, fill = Revenue, color = Revenue)) +
+geom_freqpoly(binwidth = 1) +
+labs(title = "Administrative by Revenue")
+```
+observation: false revenue increases sharply upto the pick and eventually drops sharply upto about 100 where administrative cost is 2 and then start to drop gradually. true revenues increases slightly at first and then remains stagnant even as administrative cost increases. 
+
+
+```{r}
+# Administrative Duration by Revenue
+set_plot_dimensions(5, 4)
+ggplot(df_dataset, aes(x = Administrative_Duration, fill = Revenue, color = Revenue)) +
+geom_histogram(binwidth = 1) +
+labs(title = "Administrative Duration by Revenue")
+```
+True revenue remains the same irrespective of administrative duration.
+
+
+```{r}
+# Informational by Revenue
+set_plot_dimensions(5, 4)
+ggplot(df_dataset, aes(x = Informational, fill = Revenue, color = Revenue)) +
+geom_freqpoly(binwidth = 1) +
+labs(title = "Informational by Revenu")
+```
+True revenues increases slightly and eventually drops to zero, it remains zero irrespective of an increase in information.
+
+
+
+```{r}
+# Informational Duration by Revenue
+set_plot_dimensions(5, 4)
+ggplot(df_dataset, aes(x = Informational_Duration, fill = Revenue, color = Revenue)) +
+geom_histogram(binwidth = 1) +
+labs(title = "Informational Duration by Revenue")
+```
+True revenue remains the same irrespective of information duration.
+
+```{r}
+# product related by Revenue
+set_plot_dimensions(5, 4)
+ggplot(df_dataset, aes(x = ProductRelated, fill = Revenue, color = Revenue)) +
+geom_histogram(binwidth = 1) +
+labs(title = "Product Related by Revenue")
+```
+true revenue remains low despite the product related increasing.
+
+
+
+```{r}
+# product related duration by Revenue
+set_plot_dimensions(5, 4)
+ggplot(df_dataset, aes(x = ProductRelated_Duration, fill = Revenue, color = Revenue)) +
+geom_histogram(binwidth = 1) +
+labs(title = "Product Related Duration by Revenue")
+```
+true revenue remains low despite the product related duration increasing.
+
+
+
+```{r}
+# bounce rates by Revenue
+set_plot_dimensions(5, 4)
+ggplot(df_dataset, aes(x = BounceRates, fill = Revenue, color = Revenue)) +
+geom_freqpoly(binwidth = 1) +
+labs(title = "Bounce Rates by Revenue")
+```
+bounce rates increases false revenue sharply fron negative to 0 then drop sharply to 1. true revenue also does the same but at lower rate compared to false positive.  
+
+```{r}
+# exit rates by Revenue
+set_plot_dimensions(5, 4)
+ggplot(df_dataset, aes(x = ExitRates, fill = Revenue, color = Revenue)) +
+geom_freqpoly(binwidth = 1) +
+labs(title = "Exit Rates by Revenue")
+```
+exit rates increases false revenue sharply from negative to 0 then drop sharply to 1. true revenue also does the same but at lower rate compared to false positive. 
+
+
+```{r}
+# Page Values by Revenue
+set_plot_dimensions(5, 4)
+ggplot(df_dataset, aes(x = PageValues, fill = Revenue, color = Revenue)) +
+geom_histogram(binwidth = 1) +
+labs(title = "Page Values by Revenue")
+```
+true revenue remains low despite the page values increasing.
+
+```{r}
+# special day by Revenue
+set_plot_dimensions(5, 4)
+ggplot(df_dataset, aes(x = SpecialDay, fill = Revenue, color = Revenue)) +
+geom_freqpoly(binwidth = 1) +
+labs(title = "Special Day by Revenue")
+```
+exit rates increases false revenue sharply from negative to 0 then drop sharply to 1 then they start to reduce gradually. true revenue also does the same but at lower rate compared to false positive.
+
+
+
+
+```{r}
+# plotting the distribution of Revenue per Month
+set_plot_dimensions(6, 6)
+rev_month <- table(df_dataset$Revenue, df_dataset$Month)
+barplot(rev_month, main = "Revenue per Month", col = c("pink", "brown"), beside = TRUE, 
+legend = rownames(rev_month), ylab="revenue", xlab = "Month")
+
+
+```
+observation: November returns the highest number of revenues while February returns the lowest.
+
+```{r}
+# plotting the distribution of Revenue per Operating System
+set_plot_dimensions(6, 6)
+rev_os <- table(df_dataset$Revenue, df_dataset$OperatingSystems)
+barplot(rev_os, main = "Revenue per Operating System", col = c("sky blue", "brown"), beside = TRUE, 
+        legend = rownames(rev_os),ylab="revenue", xlab = "Operating System")
+```
+observation: Operating System 2 returns the highest number of revenue while OS 5, 6, and 7 return the lowest.
+
+```{r}
+# plotting the distribution of Revenue per Browser
+set_plot_dimensions(6, 6)
+rev_browser <- table(df_dataset$Revenue, df_dataset$Browser)
+barplot(rev_browser, main = "Revenue per Browser", col = c("dark green", "brown"), beside = TRUE, 
+        legend = rownames(rev_browser),ylab="revenue", xlab = "Browser")
+```
+observation: browser 2 returns the highest number of revenue while 3, 7, 9, 11, and 12 return the lowest.
+
+
+```{r}
+# plotting the distribution of Revenue per Region
+set_plot_dimensions(6, 6)
+rev_region <- table(df_dataset$Revenue, df_dataset$Region)
+barplot(rev_region, main = "Revenue per Region", col = c("orange", "brown"), beside = TRUE, 
+        legend = rownames(rev_region), ylab="revenue", xlab = "Region")
+```
+observation: region 1 returns the highest number of revenue, Region 5 and 8 returns the lowest.
+
+
+```{r}
+# plotting the distribution of Revenue per Traffic Type
+set_plot_dimensions(6,6)
+rev_traffic <- table(df_dataset$Revenue, df_dataset$TrafficType)
+barplot(rev_traffic, main = "Revenue per Traffic Type", col = c("black", "brown"), beside = TRUE, 
+        legend = rownames(rev_traffic), ylab="revenue", xlab = "Traffic Type")
+```
+observation: Traffic 2 has the highest number of revenues, 12, 14, 16, 17, and 18 return the lowest.
+
+
+```{r}
+# plotting the distribution of Revenue per Visitor Type
+set_plot_dimensions(6, 6)
+rev_visitor <- table(df_dataset$Revenue, df_dataset$VisitorType)
+barplot(rev_visitor, main = "Revenue per Visitor Type", col = c("dark orange", "brown"), beside = TRUE, 
+        legend = rownames(rev_visitor), ylab="revenue", xlab = "Visitor Type")
+```
+observation; returning visitors generated more revenue.
+
+```{r}
+# plotting the distribution of Revenue per Weekend
+set_plot_dimensions(6, 6)
+rev_weekend <- table(df_dataset$Revenue, df_dataset$Weekend)
+barplot(rev_weekend, main = "Revenue per Weekend", col = c("tomato", "brown"), beside = TRUE, 
+        legend = rownames(rev_weekend),ylab="revenue", xlab = "Weekend")
+```
+observation: more revenue was generated during the weekdays than the weekends. This is to be expected since there are way more records of weekdays than of weekends.
+
+
+### plotting correlation of the numerical variables..
+
+```{r}
+#install.packages("corrplot") 
+library(corrplot)
+#
+## Let’s build a correlation matrix to understand the relation between each attributes
+corrplot(cor(df_num), type = 'upper', method = 'number', tl.cex = 0.9)
+```
+observation: There is a strong linear correlation between a couple of variables.
+
+1. BounceRates and ExitRates are highly positive correlation of 0.9. 
+
+2. Administrative and Administrative_Duration have a high positive correlation of 0.6. 
+
+3. Informational and Informational_Duration  high positive correlated of 0.62, 
+
+3. ProductRelated and ProductRated_Duration have high positive correlation of 0.86. 
+
+Therefore, we will have to drop one variable of each of the highly correlated pairs to reduce dimensionality and redundancy.
+
+
+## We can model the relationship between these variables by fitting a linear equation
+```{r}
+# Relationship between "BounceRates" and "ExitRates"
+#
+
+ggplot(df_num, aes(x = BounceRates, y =ExitRates)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  theme_bw()
+```
+
+
+```{r}
+# Relationship between "Administrative" and "Administrative_Duration"
+#
+
+ggplot(df_num, aes(x = Administrative, y =Administrative_Duration)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  theme_bw()
+```
+
+
+
+
+```{r}
+# Relationship between "Informational" and "Informational_Duration"
+#
+
+ggplot(df_num, aes(x = Informational, y =Informational_Duration)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  theme_bw()
+```
+
+```{r}
+# Relationship between "ProductRelated" and "ProductRated_Duration"
+#
+
+ggplot(df_num, aes(x = ProductRelated, y = ProductRelated_Duration
+)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  theme_bw()
+```
+observation: from the 4 scatter plots above, there is a high positive correlation between the pairs, Therefore, we will have to drop one variable of each of the highly correlated pairs to reduce dimensionality and redundancy.
+
+
+## dropping the highly correlated columns
+```{r}
+# selecting highly correlated columns to be dropped
+to_drop <- c("Administrative_Duration", "Informational_Duration", "ProductRelated_Duration", "ExitRates")
+#
+#dropping the highly correlated colunms
+#
+df_dataset <- df_dataset[, !names(df_dataset) %in% to_drop]
+head(df_dataset)
+
+
+```
+
+
+
+### numerical colunms for after dropping highly correlated colunms
+```{r}
+# getting the numerical columns from the new and revised dataframe
+new_numeric <- df_dataset[,1:6]
+head(new_numeric)
+```
+
+## 
+```{r}
+## Let’s build a correlation matrix to understand the relation between each attributes
+corrplot(cor(new_numeric), type = 'upper', method = 'number', tl.cex = 0.9)
+```
+observation: As we can see, removing the highly correlated variables has  reduced multicollinearity in our dataset. It also made it easier to proceed with the modelling.
+
+
+##saving our new dataset
+```{r}
+# save to csv 
+write.csv(df_dataset, "customer_new.csv")
+```
+
+
+
+
+##. Modeling
+
+## Unsupervised Learning
+
+Unsupervised learning requires data that has no labels. So we will create a new dataset that does not have the "Revenue" column.
+
+
+
+## prieveing the dataset to be used
+```{r}
+#previewing the dataset
+head(df_dataset)
+```
+
+
+## removing the target/label variable "Revenue"
+```{r}
+df_new <- df_dataset[, -14]
+df_new.revenue <- df_dataset[, "Revenue"]
+head(df_new)
+```
+observation;the dataset to be used contains 13 colunms, this is after dropping the target variable.
+
+
+##
+```{r}
+# Previewing the revenue column
+# ---
+# 
+head(df_new.revenue)
+```
+observation: this is the removed target variable.
+
+
+
+
+## converting factors to numerical for modeling
+```{r}
+# convert the factors into numerics
+df_new$Month <- as.numeric(df_new$Month)
+df_new$OperatingSystems <- as.numeric(df_new$OperatingSystems)
+df_new$Browser <- as.numeric(df_new$Browser)
+df_new$Region <- as.numeric(df_new$Region)
+df_new$TrafficType <- as.numeric(df_new$TrafficType)
+df_new$VisitorType <- as.numeric(df_new$VisitorType)
+df_new$Weekend <- as.numeric(df_new$Weekend)
+```
+
+```{r}
+## checking the new datatypes
+#
+str(df_new)
+```
+observation: now our dataset all datatypes are numerical and integers.
+
+
+```{r}
+# checking for missing values
+anyNA(df_new)
+```
+
+
+
+```{r}
+# dataset summary
+#
+summary(df_new)
+```
+observation. the above gives as an overview of our dataset, it show our datapoints are on different scales.
+
+
+## preparing our data for K-means clustering
+#
+
+let’s prepare our data to do the K means clustering
+
+From the data summary, we have seen that there are variables who are on a different scale, we need to either scale the data or normalise it. We can normalise the data using the mean and standard deviation, also we can use scale function to normalise our data.
+
+
+```{r}
+# normalizing our dataset by use of scale function.
+#
+library(dplyr)
+df_Norm <- as.data.frame(scale(df_new))
+#
+#previewing the scaled dataset.
+head(df_Norm)
+```
+observation: our data is now scaled and is now on the same scale.
+
+
+** Computing k-means clustering in R **
+
+We can compute k-means in R with the kmeans function. Here will group the data into six clusters (centers = 7). The kmeans function also has an nstart option that attempts multiple initial configurations and reports on the best one. For example, adding nstart = 30 will generate 20 initial configurations and reports on the best one. For example, adding nstart=20 generates 30 initial configurations. This approach is often recommended.
+
+
+
+```{r}
+set.seed(123)
+
+df.new_K7 <- kmeans(df_Norm, centers = 7, nstart = 20)
+print(df.new_K7)
+```
+
+
+##An Analyst always try to visualize the data and results, let’s visualize the cluster we have created, so far.
+# for visualization, istall library("factoextra") and library("cluster") packages
+```{r}
+# for visualization, istall library("factoextra") and library("cluster") packages
+
+library("factoextra")
+library("cluster")
+```
+
+
+```{r}
+#visualize the cluster  so far
+#
+fviz_cluster(df.new_K7, data = df_Norm)
+```
+
+
+When we print the model we build (df.new_k2), it shows information like, number of clusters, centers of the clusters, size of the clusters and sum of square. we will now get these attributes of our model.
+
+## checking the records in clusters
+```{r}
+# # previewing the number of records in each cluster
+df.new_K7$cluster
+```
+
+### checking clusters
+```{r}
+# previewing the cluster centers 
+df.new_K7$centers
+```
+observation; these are the 7 clusters data point distribution.
+
+```{r}
+# Cluster size
+df.new_K7$size
+```
+observation: cluster 1 has 931 data point, cluster2 675 datapoints, cluster3 4299,cluster4 1672, cluster5 1872, cluster6 1129, and clsuter7 has 1622 data points.
+
+
+```{r}
+# Between clusters sum of square
+df.new_K7$betweenss
+```
+this shows some of square. between clusters.
+
+
+
+```{r}
+# Within cluster sum of square
+df.new_K7$withinss
+```
+observation: this is sum of squares with the cluster.
+
+```{r}
+# Total with sum of square
+df.new_K7$tot.withinss
+```
+This is the total number of the sum of squares within the cluster.
+
+```{r}
+# Total sum of square
+df.new_K7$totss
+```
+this is the total sum of all squares.
+
+
+Because the number of clusters (k) must be set before we start the algorithm, it is often advantageous to use several different values of k and examine the differences in the results.
+
+
+
+### We can execute the same process for 2, 3, 4, 5 and 6 clusters, and the results are shown in the figure:
+```{r}
+df.new_K2 <- kmeans(df_Norm, centers = 2, nstart = 20)
+df.new_K3 <- kmeans(df_Norm, centers = 3, nstart = 20)
+df.new_K4 <- kmeans(df_Norm, centers = 4, nstart = 20)
+df.new_K5 <- kmeans(df_Norm, centers = 5, nstart = 20)
+df.new_K6 <- kmeans(df_Norm, centers = 6, nstart = 20)
+```
+
+### visualizing
+```{r}
+library("factoextra")
+library("cluster")
+library(gridExtra) # for grid.arrange
+#We can plot these clusters for different K value to compare.
+p1 <- fviz_cluster(df.new_K2, geom = "point", data = df_Norm) + ggtitle(" K = 2")
+p2 <- fviz_cluster(df.new_K3, geom = "point", data = df_Norm) + ggtitle(" K = 3")
+p3 <- fviz_cluster(df.new_K4, geom = "point", data = df_Norm) + ggtitle(" K = 4")
+p4 <- fviz_cluster(df.new_K5, geom = "point", data = df_Norm) + ggtitle(" K = 5")
+p5 <- fviz_cluster(df.new_K6, geom = "point", data = df_Norm) + ggtitle(" K = 6")
+
+grid.arrange(p1, p2, p3, p4,p5, nrow = 2)
+```
+
+### Determining the optimal number of cluster
+
+Determining Optimal Clusters:
+K-means clustering requires that you specify in advance the number of clusters to extract. A plot of the total within-groups sums of squares against the number of clusters in a k-means solution can be helpful. A bend in the graph can suggest the appropriate number of clusters.
+
+Below are the methods to determine the optimal number of clusters
+
+Elbow method
+Silhouette method
+Gap statistic
+
+
+### elbow method
+```{r}
+# Determining Optimal clusters (k) Using Elbow method
+fviz_nbclust(x = df_Norm,FUNcluster = kmeans, method = 'wss' )
+```
+observation: elbow methods gives 3 as the optimal cluster, we will check other methods.
+
+
+### silhouette method
+```{r}
+# Determining Optimal clusters (k) Using Average Silhouette Method
+
+fviz_nbclust(x = df_Norm,FUNcluster = kmeans, method = 'silhouette' )
+```
+observation; silhouette method chooses 2 as optimal cluster.
+
+
+
+#### There is another method called Gap-Static used for finding the optimal value of K.
+```{r}
+library("factoextra")
+library("cluster")
+library(caret)
+library(gridExtra) # for grid.arrange
+# compute gap statistic
+#set.seed(1234)
+#gap_stat <- clusGap(x = df_Norm, FUN = kmeans, K.max = 8, nstart = 25,iter.max=50)
+
+# Print the result
+#print(gap_stat, method = "firstmax")
+```
+
+note: this code keeps on crashing the program thus i will not run it.
+
+The below codes can be used to get the optimal k if thest code was to run without any issue.
+ 
+ 
+#visualizing to get the optimal cluster
+```{r}
+# plot the result to determine the optimal number of clusters.
+##fviz_gap_stat(gap_stat)
+```
+
+We can chose the k that most of these approaches suggest as the number of optimal clusters, we can perform the final analysis and extract the results using optimal clusters.
+
+For my case, the third method of choosing optimal is crashing. i have elbow method suggesting k=3 as optimal cluster and silhouette method giving 2 as optimal cluster.
+
+i will go with elbow method suggestion.
+
+```{r}
+# Compute k-means clustering with k = 3, optimal cluster
+set.seed(123)
+final <- kmeans(df_Norm, centers = 3, nstart = 25)
+print(final)
+```
+We can visualize the results using the below code.
+```{r}
+fviz_cluster(final, data = df_Norm)
+```
+these are the 3 optimal clusters.
+
+```{r}
+# showing how the clusters respond to the revenue variable
+table(final$cluster, df_dataset$Revenue)
+```
+this is how the 3 clusters responds to the revenue variable that was dropped.
+
+### We can extract the clusters and add to our initial data to do some descriptive statistics at the cluster level
+```{r}
+df_Norm %>% 
+  mutate(Cluster = final$cluster) %>%
+  group_by(Cluster) %>%
+  summarize_all('median')
+```
+these are median of variables in our clusters.
+
+summary:
+Find optimal number of clusters to be 3 using Elbow method, Silhouette method and Gap-Static method.
+and Partited the data using the optimal number of clustering to get the final result.
+
+## Hierarchical clustering
+
+
+
+```{r}
+# Before hierarchical clustering, we can compute some descriptive statistics
+# ---
+# 
+desc_stats <- data.frame(
+  Min = apply(df_Norm, 2, min),    # minimum
+  Med = apply(df_Norm, 2, median), # median
+  Mean = apply(df_Norm, 2, mean),  # mean
+  SD = apply(df_Norm, 2, sd),      # Standard deviation
+  Max = apply(df_Norm, 2, max)     # Maximum
+)
+desc_stats <- round(desc_stats, 1)
+head(desc_stats)
+```
+observation: the variable has low mean and variance since they are already standardized.
+
+
+### Agglomerative Nesting (Hierarchical Clustering) using euclidean
+
+we will use the rescaled dataset df_Norm for hierarchical clustering.
+
+```{r}
+library(cluster)
+# First we use the dist() function to compute the Euclidean distance between observations, 
+# res.hc will be the first argument in the hclust() function dissimilarity matrix
+# ---
+# first we compute the euclidean distance using euclidean metric
+eucl_dist<- dist(df_Norm, method = "euclidean")
+```
+
+```{r}
+# checking euclidean distance in matrix form 
+as.matrix(eucl_dist)[1:6, 1:6]
+```
+this is the euclidean distance of our dataset.
+
+```{r}
+# then we compute hierarchical clustering using the Ward method
+res_hcl <- hclust(eucl_dist, method =  "ward.D2")
+res_hcl
+```
+
+
+## we plot the dendogram
+```{r}
+# Lastly, we plot the obtained dendrogram
+# ---
+# 
+plot(res_hcl, cex = 0.6, hang = -1)
+```
+since there is no method to determine the optimal number of cluster, we can decide on our own assessment.
+
+we will now introduce the number of cluster we want.
+
+
+##Cut the dendrogram into different groups
+One of the problems with hierarchical clustering is that, it does not tell us how many clusters there are, or where to cut the dendrogram to form clusters.
+
+You can cut the hierarchical tree at a given height in order to partition your data into clusters. The R base function cutree() can be used to cut a tree, generated by the hclust() function, into several groups either by specifying the desired number of groups or the cut height. It returns a vector containing the cluster number of each observation.
+
+```{r}
+# Cut the tree visualizing
+# we will get 10 clusters
+# fviz_dend(res_hcl, cex = 0.5, k = 10, rect = TRUE, color_labels_by_k = TRUE)
+
+```
+note: it is taking long to run, thus i will use the below method
+
+
+```{r}
+# Cut tree into 60 groups
+grp <- cutree(res_hcl, k = 10)
+head(grp, n = 10)
+```
+
+
+```{r}
+# Number of data points in each cluster
+table(grp)
+```
+the above reflects the number of datapoints in each of the 10 clusters.
+
+
+### Agglomerative  (Hierarchical Clustering) using manhattan method
+
+```{r}
+# We now use the R function hclust() for hierarchical clustering
+# ---
+# 
+
+# First we use the dist() function to compute the Euclidean distance between observations, 
+# d will be the first argument in the hclust() function dissimilarity matrix
+# ---
+# first we compute the manhattan distance using manhattan metric
+#
+man_distance <-dist(df_Norm,method= "manhattan")
+
+```
+
+```{r}
+#
+as.matrix(man_distance)[1:6, 1:6]
+```
+```{r}
+# We then hierarchical clustering using the Ward's method
+# ---
+# 
+man_hc <- hclust(man_distance)
+man_hc
+
+```
+```{r}
+# Lastly, we plot the obtained dendrogram
+# ---
+# 
+plot(man_hc, cex = 0.6, hang = -1)
+```
+
+```{r}
+### Enhanced Visualization of Dendrogram
+
+# Cut the tree
+
+library(factoextra)
+library("ggplot2")
+
+##fviz_dend(man_hc, cex = 0.5, k = 10,color_labels_by_k = TRUE)
+```
+note: taking long to load, thus i could not persue further. however, we have insights below.
+
+```{r}
+# Cut tree into 25 groups
+grp <- cutree(man_hc, k = 10)
+head(grp, n = 10)
+```
+
+```{r}
+# Number of data points in each cluster
+table(grp)
+```
+this is the number of data points when we use manhattan 
+
+
+conclusion: the methods of Agglomerate  hirarchy yields difference number of datapoints in each clusters.
+this is because euclidean uses squared errors where as manhattan looks at absolute values.
+
+there is also another type of hirarchical clustering called Disisive Analysis clustering.
+This is the opposite of Agglomerativetype. 
+
+I will not work it out for now.
+
+
+
